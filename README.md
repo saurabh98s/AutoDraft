@@ -171,6 +171,26 @@ Detailed documentation can be found in the `docs/` directory:
 - Development Guide
 - Deployment Guide
 
-## License
 
-MIT License - see LICENSE file for details 
+## Screenshots
+
+### Dashboard
+![Dashboard](images/project_dashboard.png)
+*Main dashboard showing project overview and recent activities*
+
+### Landing Page
+![Landing Page](images/landing_page.png)
+*The main landing page introducing AutoDraft capabilities*
+
+### Grants List
+![Grants List](images/grants_list.png)
+*Overview of available grants and application status*
+
+### Project Onboarding
+![Project Onboarding](images/project_onboard.png)
+*Guided workflow for setting up new grant projects*
+
+### Why AutoDraft
+![Why AutoDraft](images/why_us.png)
+*Key benefits and features of the AutoDraft platform*
+
