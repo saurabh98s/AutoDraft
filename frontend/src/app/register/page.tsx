@@ -79,9 +79,9 @@ export default function RegisterPage() {
       await register(name, email, password, orgName);
       toast.success('Registration successful!');
       router.push('/dashboard');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Registration error:', error);
-      toast.error('Registration failed. Please try again.');
+      toast.error(error.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }

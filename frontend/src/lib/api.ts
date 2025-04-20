@@ -5,6 +5,12 @@ import { OrgContext } from '../store/slices/crmSlice';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+// Error types for better error handling
+interface ApiError extends Error {
+  info?: any;
+  status?: number;
+}
+
 // Fetcher function for SWR
 const fetcher = async (url: string) => {
   const res = await fetch(url, {
@@ -12,10 +18,10 @@ const fetcher = async (url: string) => {
   });
   
   if (!res.ok) {
-    const error = new Error('An error occurred while fetching the data.');
-    // @ts-ignore
+    const error = new Error('An error occurred while fetching the data.') as ApiError;
+    // @ts-expect-error - Adding custom properties to Error
     error.info = await res.json();
-    // @ts-ignore
+    // @ts-expect-error - Adding custom properties to Error
     error.status = res.status;
     throw error;
   }
@@ -40,6 +46,50 @@ export const login = async (email: string, password: string) => {
   
   if (!res.ok) {
     throw new Error('Login failed');
+  }
+  
+  return res.json();
+};
+
+// Backend validation error type
+interface ValidationError {
+  loc: string[];
+  msg: string;
+  type: string;
+}
+
+export const register = async (name: string, email: string, password: string, orgName: string = '') => {
+  const res = await fetch(`${API_URL}/register`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ 
+      username: name, 
+      email, 
+      password, 
+      organization_name: orgName 
+    }),
+    credentials: 'include',
+  });
+  
+  if (!res.ok) {
+    const errorData = await res.json();
+    // Handle different error response formats
+    let errorMessage = 'Registration failed';
+    
+    if (typeof errorData.detail === 'string') {
+      errorMessage = errorData.detail;
+    } else if (Array.isArray(errorData.detail)) {
+      // Handle validation errors array
+      errorMessage = errorData.detail.map((err: ValidationError) => 
+        err.msg || JSON.stringify(err)
+      ).join(', ');
+    } else if (errorData.message) {
+      errorMessage = errorData.message;
+    }
+    
+    throw new Error(errorMessage);
   }
   
   return res.json();

@@ -13,6 +13,7 @@ export interface AuthState {
   accessExp: number | null;
   isLoading: boolean;
   error: string | null;
+  isAuthenticated: boolean;
 }
 
 const initialState: AuthState = {
@@ -20,6 +21,7 @@ const initialState: AuthState = {
   accessExp: null,
   isLoading: false,
   error: null,
+  isAuthenticated: false,
 };
 
 export const authSlice = createSlice({
@@ -30,19 +32,22 @@ export const authSlice = createSlice({
       state.isLoading = true;
       state.error = null;
     },
-    loginSuccess: (state, action: PayloadAction<{ user: User; exp: number }>) => {
+    loginSuccess: (state, action: PayloadAction<{ user: User; accessExp: number }>) => {
       state.isLoading = false;
       state.user = action.payload.user;
-      state.accessExp = action.payload.exp;
+      state.accessExp = action.payload.accessExp;
       state.error = null;
+      state.isAuthenticated = true;
     },
     loginFailure: (state, action: PayloadAction<string>) => {
       state.isLoading = false;
       state.error = action.payload;
+      state.isAuthenticated = false;
     },
     logout: (state) => {
       state.user = null;
       state.accessExp = null;
+      state.isAuthenticated = false;
     },
     refreshToken: (state, action: PayloadAction<number>) => {
       state.accessExp = action.payload;
@@ -52,4 +57,4 @@ export const authSlice = createSlice({
 
 export const { loginStart, loginSuccess, loginFailure, logout, refreshToken } = authSlice.actions;
 
-export default authSlice.reducer; 
+export default authSlice.reducer;

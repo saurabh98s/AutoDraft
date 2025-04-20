@@ -2,15 +2,14 @@ from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, DateT
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.sql import func
 import uuid
+from database import Base
 
-Base = declarative_base()
-
-# Association tables
+# Many-to-many association table for projects and users
 project_users = Table(
     'project_users',
     Base.metadata,
-    Column('project_id', String, ForeignKey('projects.id')),
-    Column('user_id', String, ForeignKey('users.id'))
+    Column('project_id', String, ForeignKey('projects.id', ondelete="CASCADE"), primary_key=True),
+    Column('user_id', String, ForeignKey('users.id', ondelete="CASCADE"), primary_key=True)
 )
 
 class User(Base):
@@ -20,8 +19,8 @@ class User(Base):
     username = Column(String, unique=True, nullable=False)
     email = Column(String, unique=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    organization_id = Column(String, ForeignKey('organizations.id'), nullable=True)
-    role = Column(String, nullable=False, default='user')  # user, admin, editor
+    organization_id = Column(String, ForeignKey('organizations.id'))
+    role = Column(String, default='user')
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
@@ -33,9 +32,9 @@ class Organization(Base):
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String, nullable=False)
-    mission = Column(Text, nullable=True)
-    tax_id = Column(String, nullable=True)
-    address = Column(Text, nullable=True)
+    mission = Column(Text)
+    tax_id = Column(String)
+    address = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
@@ -47,31 +46,32 @@ class Project(Base):
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     title = Column(String, nullable=False)
-    description = Column(Text, nullable=True)
-    grant_type = Column(String, nullable=False)
-    status = Column(String, nullable=False, default='draft')  # draft, in_progress, submitted, approved, rejected
+    description = Column(Text)
+    grant_type = Column(String, default='standard')
     organization_id = Column(String, ForeignKey('organizations.id'), nullable=False)
+    status = Column(String, default='draft')
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     organization = relationship('Organization', back_populates='projects')
     users = relationship('User', secondary=project_users, back_populates='projects')
-    sections = relationship('Section', back_populates='project')
-    documents = relationship('Document', back_populates='project')
+    sections = relationship('Section', back_populates='project', cascade="all, delete-orphan")
+    documents = relationship('Document', back_populates='project', cascade="all, delete-orphan")
+    compliance_checks = relationship('ComplianceCheck', back_populates='project', cascade="all, delete-orphan")
 
 class Section(Base):
     __tablename__ = 'sections'
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     title = Column(String, nullable=False)
-    content = Column(Text, nullable=True)
-    order = Column(Integer, nullable=False)
-    project_id = Column(String, ForeignKey('projects.id'), nullable=False)
+    content = Column(Text)
+    order = Column(Integer)
+    project_id = Column(String, ForeignKey('projects.id', ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     project = relationship('Project', back_populates='sections')
-    ai_suggestions = relationship('AISuggestion', back_populates='section')
+    suggestions = relationship('AISuggestion', back_populates='section', cascade="all, delete-orphan")
 
 class Document(Base):
     __tablename__ = 'documents'
@@ -80,7 +80,7 @@ class Document(Base):
     title = Column(String, nullable=False)
     file_path = Column(String, nullable=False)
     document_type = Column(String, nullable=False)  # proposal, budget, supporting_doc
-    project_id = Column(String, ForeignKey('projects.id'), nullable=False)
+    project_id = Column(String, ForeignKey('projects.id', ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
@@ -90,20 +90,20 @@ class AISuggestion(Base):
     __tablename__ = 'ai_suggestions'
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    content = Column(Text, nullable=False)
-    section_id = Column(String, ForeignKey('sections.id'), nullable=False)
-    status = Column(String, nullable=False, default='pending')  # pending, accepted, rejected
+    content = Column(Text)
+    section_id = Column(String, ForeignKey('sections.id', ondelete="CASCADE"))
+    status = Column(String, default='pending')  # pending, accepted, rejected
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    section = relationship('Section', back_populates='ai_suggestions')
+    section = relationship('Section', back_populates='suggestions')
 
 class ComplianceCheck(Base):
     __tablename__ = 'compliance_checks'
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    project_id = Column(String, ForeignKey('projects.id'), nullable=False)
-    check_type = Column(String, nullable=False)  # mission_alignment, regulatory, format
-    result = Column(JSON, nullable=False)  # Store check results as JSON
+    project_id = Column(String, ForeignKey('projects.id', ondelete="CASCADE"))
+    check_type = Column(String, nullable=False)  # regulatory, mission_alignment
+    result = Column(Text)  # JSON string with check results
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    project = relationship('Project') 
+    project = relationship('Project', back_populates='compliance_checks') 

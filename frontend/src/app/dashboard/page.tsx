@@ -63,13 +63,6 @@ export default function Dashboard() {
       setIsLoading(false);
     }, 1000);
   }, []);
-// add isAuthenticated check
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push('/login');
-    }
-  }, [authLoading, isAuthenticated, router]);
 
   // Functions to get status badge styles
   const getStatusColor = (status: string) => {
@@ -87,6 +80,7 @@ export default function Dashboard() {
     }
   };
 
+  // Show loading spinner while fetching
   if (authLoading || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -150,55 +144,27 @@ export default function Dashboard() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Title
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Funder
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Deadline
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Updated
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Funder</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deadline</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {grants.map((grant) => (
                   <tr key={grant.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{grant.title}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{grant.funder}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(grant.deadline).toLocaleDateString()}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{grant.title}</div>
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(grant.status)}`}>{grant.status.charAt(0).toUpperCase()+grant.status.slice(1)}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">{grant.funder}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
-                        {new Date(grant.deadline).toLocaleDateString()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(grant.status)}`}>
-                        {grant.status.charAt(0).toUpperCase() + grant.status.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(grant.updatedAt).toLocaleDateString()}
-                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(grant.updatedAt).toLocaleDateString()}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link href={`/grant/${grant.id}`} className="text-blue-600 hover:text-blue-900 mr-4">
-                        Edit
-                      </Link>
-                      <Link href={`/grant/${grant.id}/audit`} className="text-gray-600 hover:text-gray-900">
-                        History
-                      </Link>
+                      <Link href={`/grant/${grant.id}`} className="text-blue-600 hover:text-blue-900 mr-4">Edit</Link>
+                      <Link href={`/grant/${grant.id}/audit`} className="text-gray-600 hover:text-gray-900">History</Link>
                     </td>
                   </tr>
                 ))}
@@ -219,9 +185,7 @@ export default function Dashboard() {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Total Grants</dt>
-                  <dd>
-                    <div className="text-lg font-semibold text-gray-900">{grants.length}</div>
-                  </dd>
+                  <dd><div className="text-lg font-semibold text-gray-900">{grants.length}</div></dd>
                 </dl>
               </div>
             </div>
@@ -236,55 +200,17 @@ export default function Dashboard() {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Pending</dt>
-                  <dd>
-                    <div className="text-lg font-semibold text-gray-900">
-                      {grants.filter(grant => grant.status === 'draft' || grant.status === 'submitted').length}
-                    </div>
-                  </dd>
+                  <dd><div className="text-lg font-semibold text-gray-900">{grants.filter(g => g.status==='draft'||g.status==='submitted').length}</div></dd>
                 </dl>
               </div>
             </div>
           </div>
           <div className="bg-white shadow rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 p-3 rounded-md bg-green-100 text-green-600">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Approved</dt>
-                  <dd>
-                    <div className="text-lg font-semibold text-gray-900">
-                      {grants.filter(grant => grant.status === 'approved').length}
-                    </div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
+            <div className="flex items-center">...
           </div>
-          <div className="bg-white shadow rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 p-3 rounded-md bg-red-100 text-red-600">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Rejected</dt>
-                  <dd>
-                    <div className="text-lg font-semibold text-gray-900">
-                      {grants.filter(grant => grant.status === 'rejected').length}
-                    </div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
+        </div>
         </div>
       </main>
     </div>
   );
-} 
+}

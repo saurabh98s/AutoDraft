@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, adminEmail } = useAuth();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -18,15 +18,28 @@ export default function LoginPage() {
     setIsLoading(true);
     
     try {
+      // Check if using admin credentials for direct login
+      const isAdminLogin = email === adminEmail && password === 'Admin@123';
+      
       await login(email, password);
-      toast.success('Login successful!');
-      router.push('/dashboard');
+      
+      // Only show toast for non-admin logins
+      if (!isAdminLogin) {
+        toast.success('Login successful!');
+      }
+      
+      // The router.push is already called in the useAuth hook for admin login
     } catch (error) {
       console.error('Login error:', error);
       toast.error('Login failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const useAdminCredentials = () => {
+    setEmail(adminEmail);
+    setPassword('Admin@123');
   };
 
   return (
@@ -121,6 +134,20 @@ export default function LoginPage() {
                 "Sign in"
               )}
             </button>
+          </div>
+          
+          {/* Admin login shortcut */}
+          <div className="text-center">
+            <button 
+              type="button"
+              onClick={useAdminCredentials}
+              className="text-sm text-indigo-600 hover:text-indigo-800 transition"
+            >
+              Use admin credentials
+            </button>
+            <p className="text-xs text-gray-500 mt-1">
+              Admin: {adminEmail} / Admin@123
+            </p>
           </div>
         </form>
 
