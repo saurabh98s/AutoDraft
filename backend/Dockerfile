@@ -20,6 +20,7 @@ RUN mkdir -p templates generated_documents uploads && \
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+ENV WORKERS=4
 
 # Copy requirements first for better caching
 COPY requirements.txt .
@@ -39,4 +40,4 @@ RUN chmod +x /usr/local/bin/wait-for-it
 RUN if [ -f /app/wait-for-it.sh ]; then chmod +x /app/wait-for-it.sh; fi
 
 # Command to run - using wait-for-it to ensure postgres is ready
-CMD ["bash", "-c", "wait-for-it postgres:5432 --timeout=60 -- python init_db_sql.py && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"] 
+CMD ["bash", "-c", "wait-for-it postgres:5432 --timeout=60 -- python init_db_sql.py && uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1 --reload"] 

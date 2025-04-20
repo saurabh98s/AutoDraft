@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
-import { addMessage } from '../../store/slices/aiSlice';
+import { addMessage, setIsStreaming } from '../../store/slices/aiSlice';
 import { useEventSource } from '../../hooks/useEventSource';
 
 interface GrantBotProps {
@@ -30,7 +30,7 @@ const GrantBot: React.FC<GrantBotProps> = ({ isOpen = true, onClose = () => {} }
   const isStreaming = useSelector((state: RootState) => state.ai.isStreaming);
 
   const { startEventSource, stopEventSource } = useEventSource({
-    onMessage: (event) => {
+    onMessage: (event: { data: string }) => {
       try {
         const data = JSON.parse(event.data);
         
@@ -61,8 +61,20 @@ const GrantBot: React.FC<GrantBotProps> = ({ isOpen = true, onClose = () => {} }
     },
     onError: (error) => {
       console.error('SSE error:', error);
+      dispatch(setIsStreaming(false));
+    },
+    onOpen: () => {
+      dispatch(setIsStreaming(true));
     },
   });
+
+  // Clean up on unmount or when closing the chat
+  useEffect(() => {
+    return () => {
+      stopEventSource();
+      dispatch(setIsStreaming(false));
+    };
+  }, [stopEventSource, dispatch]);
 
   useEffect(() => {
     scrollToBottom();
@@ -85,8 +97,8 @@ const GrantBot: React.FC<GrantBotProps> = ({ isOpen = true, onClose = () => {} }
     };
     dispatch(addMessage(userMessage));
 
-    // In a real app, we'd connect to the backend here
-    // For demo, simulate an API call
+    // Set streaming state and connect to the API
+    dispatch(setIsStreaming(true));
     startEventSource(`/api/agent/run?message=${encodeURIComponent(inputValue)}`);
 
     setInputValue('');
@@ -147,7 +159,7 @@ const GrantBot: React.FC<GrantBotProps> = ({ isOpen = true, onClose = () => {} }
           </div>
         ) : (
           <div className="space-y-4">
-            {messages.map((message) => (
+            {messages.map((message: Message) => (
               <div
                 key={message.id}
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}

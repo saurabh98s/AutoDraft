@@ -20,9 +20,8 @@ const ComplianceChecker: React.FC<ComplianceCheckerProps> = ({ documentId = 'def
   const [complianceScore, setComplianceScore] = useState(0);
   const [issues, setIssues] = useState<ComplianceIssue[]>([]);
 
-  // Mock compliance check
+  // Initial compliance check on component mount
   useEffect(() => {
-    // Simulate initial check
     runComplianceCheck();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -31,8 +30,8 @@ const ComplianceChecker: React.FC<ComplianceCheckerProps> = ({ documentId = 'def
     setIsChecking(true);
     
     try {
-      // Make API call to the compliance check endpoint
-      const response = await fetch(`http://localhost:8000/api/grants/${documentId}/compliance-check`, {
+      // Call the real compliance service endpoint
+      const response = await fetch(`http://localhost:8000/projects/${documentId}/compliance`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -45,53 +44,119 @@ const ComplianceChecker: React.FC<ComplianceCheckerProps> = ({ documentId = 'def
       
       const data = await response.json();
       
-      setIssues(data.issues);
-      setComplianceScore(data.score);
+      // Transform the real compliance data to match our UI component's expectations
+      const transformedIssues: ComplianceIssue[] = [];
+      
+      // Process compliance issues
+      if (data.compliance && data.compliance.issues) {
+        data.compliance.issues.forEach((issue: any, index: number) => {
+          transformedIssues.push({
+            id: `compliance-${index}`,
+            section: issue.category || 'General',
+            severity: issue.severity as 'high' | 'medium' | 'low',
+            message: issue.description,
+            suggestion: issue.suggestion,
+            fixed: false
+          });
+        });
+      }
+      
+      // Add gap analysis issues if available
+      if (data.gap_analysis && data.gap_analysis.gaps) {
+        data.gap_analysis.gaps.forEach((gap: any, index: number) => {
+          // Map importance levels to severity levels
+          const severityMap: {[key: string]: 'high' | 'medium' | 'low'} = {
+            'critical': 'high',
+            'high': 'high',
+            'medium': 'medium',
+            'low': 'low'
+          };
+          
+          transformedIssues.push({
+            id: `gap-${index}`,
+            section: gap.section || 'General',
+            severity: severityMap[gap.importance] || 'medium',
+            message: gap.gap_description,
+            suggestion: gap.recommendation,
+            fixed: false
+          });
+        });
+      }
+      
+      // Calculate compliance score based on results
+      let score = data.compliance?.score ? Math.round(data.compliance.score * 100) : 0;
+      if (data.gap_analysis?.completeness_score) {
+        // Average with gap analysis score if available
+        score = Math.round((score + (data.gap_analysis.completeness_score * 100)) / 2);
+      }
+      
+      setIssues(transformedIssues);
+      setComplianceScore(score);
       setLastChecked(new Date());
       toast.success('Compliance check completed');
     } catch (error) {
       console.error('Error running compliance check:', error);
       toast.error('Failed to complete compliance check');
       
-      // Fallback to mock data if API fails
-      const mockIssues: ComplianceIssue[] = [
-        {
-          id: '1',
-          section: 'Executive Summary',
-          severity: 'high',
-          message: 'Missing project timeline',
-          suggestion: 'Add a brief timeline of key project milestones',
-          fixed: false
-        },
-        {
-          id: '2',
-          section: 'Budget',
-          severity: 'high',
-          message: 'Budget exceeds maximum allowable amount',
-          suggestion: 'Reduce budget to below $100,000',
-          fixed: false
-        },
-        {
-          id: '3',
-          section: 'Organization Background',
-          severity: 'medium',
-          message: 'Missing organizational capacity statement',
-          suggestion: 'Add information about your organization\'s ability to execute the project',
-          fixed: false
-        },
-        {
-          id: '4',
-          section: 'Project Description',
-          severity: 'low',
-          message: 'Section is too verbose',
-          suggestion: 'Reduce length by 15-20%',
-          fixed: false
+      // Fall back to the UI-friendly mock endpoint if the real service fails
+      try {
+        const mockResponse = await fetch(`http://localhost:8000/api/grants/${documentId}/compliance-check`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        if (mockResponse.ok) {
+          const mockData = await mockResponse.json();
+          setIssues(mockData.issues);
+          setComplianceScore(mockData.score);
+          setLastChecked(new Date());
+        } else {
+          throw new Error('Mock compliance check also failed');
         }
-      ];
-      
-      setIssues(mockIssues);
-      setComplianceScore(78); // Mock score
-      setLastChecked(new Date());
+      } catch (mockError) {
+        console.error('Error running mock compliance check:', mockError);
+        // Last resort - use hardcoded fallback data
+        const fallbackIssues: ComplianceIssue[] = [
+          {
+            id: '1',
+            section: 'Abstract',
+            severity: 'high',
+            message: 'Missing project timeline',
+            suggestion: 'Add a brief timeline of key project milestones',
+            fixed: false
+          },
+          {
+            id: '2',
+            section: 'Budget',
+            severity: 'high',
+            message: 'Budget exceeds maximum allowable amount',
+            suggestion: 'Reduce budget to below $100,000',
+            fixed: false
+          },
+          {
+            id: '3',
+            section: 'Methodology',
+            severity: 'medium',
+            message: 'Missing organizational capacity statement',
+            suggestion: 'Add information about your organization\'s ability to execute the project',
+            fixed: false
+          },
+          {
+            id: '4',
+            section: 'Introduction',
+            severity: 'low',
+            message: 'Section is too verbose',
+            suggestion: 'Reduce length by 15-20%',
+            fixed: false
+          }
+        ];
+        
+        setIssues(fallbackIssues);
+        setComplianceScore(78); // Default score
+        setLastChecked(new Date());
+      }
     } finally {
       setIsChecking(false);
     }
@@ -106,7 +171,7 @@ const ComplianceChecker: React.FC<ComplianceCheckerProps> = ({ documentId = 'def
     
     // Update compliance score
     const fixedCount = issues.filter(issue => issue.fixed || issue.id === id).length;
-    const newScore = Math.min(100, Math.round((fixedCount / issues.length) * 100) + 78);
+    const newScore = Math.min(100, Math.round((fixedCount / issues.length) * 100));
     setComplianceScore(newScore);
     
     toast.success('Issue fixed!');

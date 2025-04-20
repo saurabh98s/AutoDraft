@@ -50,7 +50,7 @@ class Project(Base):
     grant_type = Column(String, default='standard')
     organization_id = Column(String, ForeignKey('organizations.id'), nullable=False)
     status = Column(String, default='draft')
-    project_metadata = Column(Text)  # JSON string for additional project attributes
+    project_metadata = Column(Text, nullable=True)  # JSON string for additional project attributes
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     

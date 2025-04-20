@@ -1,13 +1,15 @@
-from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile, Body, Form
+from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile, Body, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 import os
 import json
+import asyncio
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from jose import JWTError, jwt
+from sse_starlette.sse import EventSourceResponse
 
 # Import database and auth modules - use absolute imports
 from database import get_db
@@ -19,6 +21,8 @@ from services.rag import process_document, generate_questions, query_rag
 from services.compliance import check_compliance, perform_gap_analysis
 from services.document import format_document, assemble_final_document
 from services.research import research_grant_opportunities, get_grant_details
+from services.research_agent import research_topic, generate_section, generate_all_sections
+from services.text_transform import transform_text
 
 # Load environment variables
 load_dotenv()
@@ -33,10 +37,10 @@ app = FastAPI(
 allowed_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 print(f"CORS allowed origins: {allowed_origins}")
 
-# CORS middleware configuration
+# CORS middleware configuration - simplified
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=["*"],  # Allow all origins for now
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -678,7 +682,7 @@ async def get_dashboard_summary(db: Session = Depends(get_db)):
             "funder": metadata.get("funding_source", "Unknown"),
             "deadline": metadata.get("deadline", ""),
             "status": project.status,
-            "updatedAt": project.updated_at.isoformat()
+            "updatedAt": project.updated_at.isoformat() if project.updated_at else ""
         })
     
     return {
@@ -927,6 +931,256 @@ async def run_compliance_check_ui(
         "timestamp": datetime.utcnow().isoformat(),
         "message": "Compliance check completed"
     }
+
+# Research agent endpoints
+@app.post("/api/research/topic")
+async def run_research(
+    topic: str = Body(...),
+    context: str = Body(""),
+):
+    """Run a research on a topic and return findings."""
+    results = await research_topic(topic, context)
+    return results
+
+@app.post("/api/grants/{grant_id}/generate-section/{section_type}")
+async def generate_section_content(
+    grant_id: str,
+    section_type: str,
+    db: Session = Depends(get_db)
+):
+    """Generate content for a specific section of a grant proposal."""
+    # Get the project data
+    project = db.query(Project).filter(Project.id == grant_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Grant not found")
+    
+    # Get existing section if it exists
+    section = db.query(Section).filter(
+        Section.project_id == grant_id,
+        Section.title == section_type
+    ).first()
+    
+    # Generate content for the section
+    content = await generate_section(
+        section_type=section_type,
+        project_id=grant_id,
+        title=project.title,
+        description=project.description or ""
+    )
+    
+    # If the section exists, update it
+    if section:
+        section.content = content["content"]
+        db.commit()
+    else:
+        # Otherwise create a new section
+        # Determine the order based on existing sections
+        max_order = db.query(db.func.max(Section.order)).filter(
+            Section.project_id == grant_id
+        ).scalar() or 0
+        
+        new_section = Section(
+            title=section_type,
+            content=content["content"],
+            order=max_order + 1,
+            project_id=grant_id
+        )
+        db.add(new_section)
+        db.commit()
+        db.refresh(new_section)
+        section = new_section
+    
+    return {
+        "id": section.id,
+        "title": section.title,
+        "content": content["content"],
+        "sources": content["sources"],
+        "suggestions": content["suggestions"]
+    }
+
+@app.post("/api/grants/{grant_id}/generate-all-sections")
+async def generate_all_sections_content(
+    grant_id: str,
+    db: Session = Depends(get_db)
+):
+    """Generate content for all standard sections of a grant proposal."""
+    # Get the project data
+    project = db.query(Project).filter(Project.id == grant_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Grant not found")
+    
+    # Generate content for all sections
+    all_content = await generate_all_sections(
+        project_id=grant_id,
+        title=project.title,
+        description=project.description or ""
+    )
+    
+    # Update or create sections in the database
+    section_data = {}
+    for section_type, content in all_content.items():
+        # Convert to title case for database
+        section_title = section_type.capitalize()
+        
+        # Check if section already exists
+        section = db.query(Section).filter(
+            Section.project_id == grant_id,
+            Section.title == section_title
+        ).first()
+        
+        if section:
+            # Update existing section
+            section.content = content["content"]
+            db.commit()
+            db.refresh(section)
+        else:
+            # Create new section
+            max_order = db.query(db.func.max(Section.order)).filter(
+                Section.project_id == grant_id
+            ).scalar() or 0
+            
+            section = Section(
+                title=section_title,
+                content=content["content"],
+                order=max_order + 1,
+                project_id=grant_id
+            )
+            db.add(section)
+            db.commit()
+            db.refresh(section)
+        
+        # Add to response data
+        section_data[section_type] = {
+            "id": section.id,
+            "title": section.title,
+            "content": content["content"],
+            "sources": content["sources"],
+            "suggestions": content["suggestions"]
+        }
+    
+    return section_data
+
+@app.post("/api/grants/{grant_id}/research-assistant")
+async def run_research_assistant(
+    grant_id: str,
+    query: str = Body(...),
+    db: Session = Depends(get_db)
+):
+    """Run research on a specific query related to the grant."""
+    # Get the project data
+    project = db.query(Project).filter(Project.id == grant_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Grant not found")
+    
+    # Use the project context to enhance the research
+    context = f"Grant proposal titled '{project.title}'. {project.description or ''}"
+    
+    # Run the research
+    results = await research_topic(query, context)
+    
+    return {
+        "query": query,
+        "results": results,
+        "grant_id": grant_id
+    }
+
+# Text transformation endpoint
+@app.post("/api/text/transform")
+async def transform_text_endpoint(
+    text: str = Body(...),
+    transformation_type: str = Body(...),
+    custom_instruction: str = Body(""),
+):
+    """Transform text according to the specified transformation type and instructions."""
+    result = await transform_text(text, transformation_type, custom_instruction)
+    return result
+
+# GrantBot agent endpoint with streaming response
+@app.get("/api/agent/run")
+async def agent_run(request: Request, message: str):
+    """
+    Run the agent with server-sent events for streaming responses.
+    """
+    async def event_generator():
+        try:
+            # Initial response
+            yield {
+                "event": "message",
+                "id": "1",
+                "retry": 15000,
+                "data": json.dumps({
+                    "role": "assistant",
+                    "content": "I'm processing your request: " + message
+                })
+            }
+            
+            await asyncio.sleep(0.5)
+            
+            # Tool call example
+            yield {
+                "event": "message",
+                "id": "2",
+                "data": json.dumps({
+                    "tool_call": {
+                        "name": "vector_search",
+                        "arguments": {"query": message}
+                    }
+                })
+            }
+            
+            await asyncio.sleep(1.5)
+            
+            # Simulate getting context from the knowledge base
+            context = "Based on my research of grant proposals, I found some relevant information."
+            
+            # Breaking the response into chunks to simulate streaming
+            response_parts = [
+                "Let me help you with that. ",
+                "I've analyzed your question about grant writing. ",
+                context,
+                "\n\nTo address your specific question about " + message + ", I recommend: ",
+                "\n\n1. Focus on clearly stating the problem your project addresses",
+                "\n2. Quantify your expected outcomes with specific metrics",
+                "\n3. Align your proposal with the funder's priorities and goals",
+                "\n\nWould you like me to elaborate on any of these points?"
+            ]
+            
+            # Stream the response parts
+            for i, part in enumerate(response_parts):
+                yield {
+                    "event": "message",
+                    "id": str(i + 3),
+                    "data": json.dumps({
+                        "role": "assistant",
+                        "content": part
+                    })
+                }
+                await asyncio.sleep(0.7)
+            
+            # Client disconnected
+            if await request.is_disconnected():
+                print("Client disconnected")
+                return
+
+        except Exception as e:
+            print(f"Error in event generator: {str(e)}")
+            yield {
+                "event": "error",
+                "id": "error",
+                "data": json.dumps({
+                    "role": "system",
+                    "content": f"An error occurred: {str(e)}"
+                })
+            }
+    
+    headers = {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no"
+    }
+    
+    return EventSourceResponse(event_generator(), headers=headers)
 
 if __name__ == "__main__":
     import uvicorn

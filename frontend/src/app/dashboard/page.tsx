@@ -11,6 +11,8 @@ import GrantBot from "../../components/assistant/GrantBot";
 import ComplianceChecker from "../../components/compliance/ComplianceChecker";
 import { useDispatch } from "react-redux";
 import { setDocId } from "../../store/slices/docSlice";
+import ResearchAssistant from "../../components/research/ResearchAssistant";
+import { toast } from "react-toastify";
 
 interface Grant {
   id: string;
@@ -70,6 +72,7 @@ export default function DashboardPage() {
   const [activeSection, setActiveSection] = useState<string | null>("abstract");
   const [showBot, setShowBot] = useState<boolean>(false);
   const [showCompliance, setShowCompliance] = useState<boolean>(false);
+  const [showResearch, setShowResearch] = useState<boolean>(false);
 
   // Convert sections array to Record for components that need it
   const sectionsRecord = sections.reduce((acc, section) => {
@@ -207,6 +210,11 @@ export default function DashboardPage() {
     setShowBot(!showBot);
   };
 
+  // Toggle research assistant
+  const toggleResearch = () => {
+    setShowResearch(!showResearch);
+  };
+
   // Close assistant drawer
   const handleCloseBot = () => {
     setShowBot(false);
@@ -254,6 +262,33 @@ export default function DashboardPage() {
       } catch (error) {
         console.error('Error updating section:', error);
       }
+    }
+  };
+
+  // Handle section content generation from research assistant
+  const handleSectionGenerated = (sectionType: string, content: string) => {
+    // Find the section that matches the type
+    const sectionToUpdate = sections.find(
+      section => section.title.toLowerCase() === sectionType.toLowerCase()
+    );
+    
+    if (sectionToUpdate) {
+      // Update the section in our local state
+      const updatedSections = sections.map(section => 
+        section.id === sectionToUpdate.id 
+          ? { ...section, content } 
+          : section
+      );
+      setSections(updatedSections);
+      
+      // Also update the section via API if we have a current grant
+      if (currentGrant) {
+        handleSectionUpdate(sectionToUpdate.id, content);
+      }
+      
+      toast.success(`${sectionType} section updated with AI-generated content`);
+    } else {
+      toast.error(`Could not find section: ${sectionType}`);
     }
   };
 
@@ -616,6 +651,16 @@ export default function DashboardPage() {
               >
                 Compliance Check
               </button>
+              <button
+                onClick={toggleResearch}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  showResearch 
+                    ? 'bg-purple-600 text-white' 
+                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                }`}
+              >
+                Research
+              </button>
               <button className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors">
                 Save Draft
               </button>
@@ -650,6 +695,14 @@ export default function DashboardPage() {
               {showCompliance && (
                 <div className="bg-white rounded-lg shadow-md">
                   <ComplianceChecker documentId={currentGrant?.id || "new-doc"} />
+                </div>
+              )}
+              {showResearch && (
+                <div className="bg-white rounded-lg shadow-md">
+                  <ResearchAssistant 
+                    grantId={currentGrant?.id || "new-doc"} 
+                    onSectionGenerated={handleSectionGenerated}
+                  />
                 </div>
               )}
             </div>
