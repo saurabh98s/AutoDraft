@@ -23,6 +23,7 @@ from services.document import format_document, assemble_final_document
 from services.research import research_grant_opportunities, get_grant_details
 from services.research_agent import research_topic, generate_section, generate_all_sections
 from services.text_transform import transform_text
+from services.agent import run_agent
 
 # Load environment variables
 load_dotenv()
@@ -37,7 +38,7 @@ app = FastAPI(
 allowed_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 print(f"CORS allowed origins: {allowed_origins}")
 
-# CORS middleware configuration - simplified
+# CORS middleware configuration - fixed to ensure proper format
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins for now
@@ -1100,9 +1101,14 @@ async def transform_text_endpoint(
 async def agent_run(request: Request, message: str):
     """
     Run the agent with server-sent events for streaming responses.
+    Uses the dedicated agent service for AI-powered responses.
     """
     async def event_generator():
         try:
+            # Get context from the request - useful for editor integration
+            section_id = request.query_params.get("section_id", None)
+            section_text = request.query_params.get("section_text", "")
+            
             # Initial response
             yield {
                 "event": "message",
@@ -1110,58 +1116,36 @@ async def agent_run(request: Request, message: str):
                 "retry": 15000,
                 "data": json.dumps({
                     "role": "assistant",
-                    "content": "I'm processing your request: " + message
+                    "content": "I'm analyzing your request..."
                 })
             }
             
-            await asyncio.sleep(0.5)
-            
-            # Tool call example
-            yield {
-                "event": "message",
-                "id": "2",
-                "data": json.dumps({
-                    "tool_call": {
-                        "name": "vector_search",
-                        "arguments": {"query": message}
+            # Use the agent service to generate a streaming response
+            async for response in run_agent(message, section_id, section_text):
+                if "content" in response and response["content"]:
+                    yield {
+                        "event": "message",
+                        "id": str(id(response)),
+                        "data": json.dumps({
+                            "role": response.get("role", "assistant"),
+                            "content": response["content"]
+                        })
                     }
-                })
-            }
-            
-            await asyncio.sleep(1.5)
-            
-            # Simulate getting context from the knowledge base
-            context = "Based on my research of grant proposals, I found some relevant information."
-            
-            # Breaking the response into chunks to simulate streaming
-            response_parts = [
-                "Let me help you with that. ",
-                "I've analyzed your question about grant writing. ",
-                context,
-                "\n\nTo address your specific question about " + message + ", I recommend: ",
-                "\n\n1. Focus on clearly stating the problem your project addresses",
-                "\n2. Quantify your expected outcomes with specific metrics",
-                "\n3. Align your proposal with the funder's priorities and goals",
-                "\n\nWould you like me to elaborate on any of these points?"
-            ]
-            
-            # Stream the response parts
-            for i, part in enumerate(response_parts):
-                yield {
-                    "event": "message",
-                    "id": str(i + 3),
-                    "data": json.dumps({
-                        "role": "assistant",
-                        "content": part
-                    })
-                }
-                await asyncio.sleep(0.7)
-            
-            # Client disconnected
-            if await request.is_disconnected():
-                print("Client disconnected")
-                return
-
+                
+                if "tool_call" in response and response["tool_call"]:
+                    yield {
+                        "event": "message",
+                        "id": str(id(response)),
+                        "data": json.dumps({
+                            "tool_call": response["tool_call"]
+                        })
+                    }
+                
+                # Client disconnected
+                if await request.is_disconnected():
+                    print("Client disconnected")
+                    return
+                    
         except Exception as e:
             print(f"Error in event generator: {str(e)}")
             yield {

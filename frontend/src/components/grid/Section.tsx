@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import TextSelectionHelper from '../editor/TextSelectionHelper';
+import InlineGrantBot from '../assistant/InlineGrantBot';
 
 interface SectionProps {
   id: string;
@@ -17,6 +18,7 @@ const Section: React.FC<SectionProps> = ({ id, title, content, onClick, onConten
   const [selectedText, setSelectedText] = useState('');
   const [selectionCoords, setSelectionCoords] = useState({ x: 0, y: 0 });
   const [showTextHelper, setShowTextHelper] = useState(false);
+  const [showGrantBot, setShowGrantBot] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Update local content when prop changes
@@ -87,11 +89,51 @@ const Section: React.FC<SectionProps> = ({ id, title, content, onClick, onConten
     }
   };
 
+  const toggleGrantBot = () => {
+    setShowGrantBot(!showGrantBot);
+    if (!showGrantBot) {
+      // When opening, place it at a reasonable position
+      const textareaRect = textareaRef.current?.getBoundingClientRect();
+      if (textareaRect) {
+        setSelectionCoords({
+          x: textareaRect.left + textareaRect.width / 2,
+          y: textareaRect.top + 50
+        });
+      }
+    }
+  };
+
+  const handleGrantBotTextReplace = (newText: string) => {
+    // If we have selected text, replace just that part
+    if (textareaRef.current && textareaRef.current.selectionStart !== textareaRef.current.selectionEnd) {
+      handleTransformedText(newText);
+    } else {
+      // Otherwise replace the entire content
+      setLocalContent(newText);
+      if (onContentChange) {
+        onContentChange(newText);
+      }
+    }
+  };
+
   return (
     <div className="bg-white p-4 rounded-lg h-full flex flex-col" onClick={onClick}>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
-        <div>
+        <div className="flex space-x-2">
+          {isEditing && (
+            <button
+              type="button"
+              onClick={toggleGrantBot}
+              className={`px-2 py-1 text-xs font-medium rounded ${
+                showGrantBot 
+                  ? 'text-white bg-purple-600 hover:bg-purple-700' 
+                  : 'text-white bg-purple-500 hover:bg-purple-600'
+              }`}
+            >
+              GrantBot
+            </button>
+          )}
           {isEditing ? (
             <button
               type="button"
@@ -130,6 +172,16 @@ const Section: React.FC<SectionProps> = ({ id, title, content, onClick, onConten
             selectedText={selectedText}
             onTextTransform={handleTransformedText}
             onClose={() => setShowTextHelper(false)}
+          />
+          
+          <InlineGrantBot
+            visible={showGrantBot}
+            x={selectionCoords.x}
+            y={selectionCoords.y}
+            sectionId={id}
+            sectionText={localContent}
+            onTextReplace={handleGrantBotTextReplace}
+            onClose={() => setShowGrantBot(false)}
           />
         </div>
       ) : (

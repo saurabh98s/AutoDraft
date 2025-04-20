@@ -1,97 +1,65 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { API_URL } from '../lib/constants';
+import { useCallback, useRef } from 'react';
 
 interface EventSourceOptions {
-  onMessage?: (event: any) => void;
-  onError?: (error: Event) => void;
+  onMessage?: (event: { data: string }) => void;
+  onError?: (error: any) => void;
   onOpen?: () => void;
+  onComplete?: () => void;
 }
 
 export const useEventSource = (options: EventSourceOptions = {}) => {
-  const [data, setData] = useState<any[]>([]);
-  const [error, setError] = useState<Event | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  const { onMessage, onError, onOpen } = options;
-
+  const startEventSource = useCallback((url: string) => {
+    // Close any existing connections
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+    
+    try {
+      // Create new EventSource connection
+      const eventSource = new EventSource(url);
+      eventSourceRef.current = eventSource;
+      
+      // Set up event handlers
+      eventSource.onopen = () => {
+        if (options.onOpen) options.onOpen();
+      };
+      
+      eventSource.onmessage = (event) => {
+        if (options.onMessage) options.onMessage(event);
+      };
+      
+      eventSource.onerror = (error) => {
+        if (options.onError) options.onError(error);
+        eventSource.close();
+        eventSourceRef.current = null;
+        if (options.onComplete) options.onComplete();
+      };
+      
+      // Return a cleanup function
+      return () => {
+        eventSource.close();
+        eventSourceRef.current = null;
+      };
+    } catch (error) {
+      console.error('Error establishing SSE connection:', error);
+      if (options.onError) options.onError(error);
+      if (options.onComplete) options.onComplete();
+    }
+  }, [options]);
+  
   const stopEventSource = useCallback(() => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
-      setIsConnected(false);
+      if (options.onComplete) options.onComplete();
     }
-  }, []);
-
-  const startEventSource = useCallback((endpoint: string) => {
-    // First close any existing connection
-    stopEventSource();
-
-    // Create a new connection
-    const url = `${API_URL}${endpoint}`;
-    const eventSource = new EventSource(url, { withCredentials: true });
-    eventSourceRef.current = eventSource;
-
-    eventSource.onopen = () => {
-      setIsConnected(true);
-      if (onOpen) onOpen();
-    };
-
-    // Listen for message events
-    eventSource.addEventListener('message', (event) => {
-      try {
-        const parsedData = JSON.parse(event.data);
-        setData((prev) => [...prev, parsedData]);
-        if (onMessage) onMessage(event);
-      } catch (error) {
-        console.error('Failed to parse SSE data:', error);
-      }
-    });
-
-    // Listen for error events
-    eventSource.addEventListener('error', (event) => {
-      try {
-        const parsedData = JSON.parse((event as MessageEvent).data);
-        setData((prev) => [...prev, parsedData]);
-      } catch (error) {
-        console.error('Failed to parse SSE error data:', error);
-      }
-      
-      setError(event);
-      setIsConnected(false);
-      if (onError) onError(event);
-      stopEventSource();
-    });
-
-    // Handle generic errors
-    eventSource.onerror = (event) => {
-      setError(event);
-      setIsConnected(false);
-      if (onError) onError(event);
-      stopEventSource();
-    };
-
-    return eventSource;
-  }, [onMessage, onError, onOpen, stopEventSource]);
-
-  // Clean up on unmount
-  useEffect(() => {
-    return () => {
-      stopEventSource();
-    };
-  }, [stopEventSource]);
-
-  const reset = useCallback(() => {
-    setData([]);
-    setError(null);
-  }, []);
-
+  }, [options]);
+  
   return {
-    data,
-    error,
-    isConnected,
-    reset,
     startEventSource,
     stopEventSource,
+    isConnected: !!eventSourceRef.current
   };
 }; 
