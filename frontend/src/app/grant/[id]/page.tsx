@@ -5,6 +5,8 @@ import { useParams } from 'next/navigation';
 import EditorCanvas from '../../../components/editor/EditorCanvas';
 import SectionNav from '../../../components/editor/SectionNav';
 import GrantBot from '../../../components/assistant/GrantBot';
+import DocumentGenerator from '../../../components/editor/DocumentGenerator';
+import ComplianceChecker from '../../../components/compliance/ComplianceChecker';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../../store';
@@ -53,6 +55,7 @@ export default function GrantWorkspace() {
   const [isLoading, setIsLoading] = useState(true);
   const [alignmentScore, setAlignmentScore] = useState(82);
   const [showOfflineBanner, setShowOfflineBanner] = useState(false);
+  const [activeTab, setActiveTab] = useState('editor'); // 'editor', 'compliance', 'documents'
   const dispatch = useDispatch();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const isAIDrawerOpen = useSelector((state: RootState) => state.ai.isDrawerOpen);
@@ -185,11 +188,55 @@ export default function GrantWorkspace() {
               </button>
             </div>
           </div>
+          
+          {/* Tabs */}
+          <div className="flex border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('editor')}
+              className={`py-3 px-6 text-sm font-medium ${
+                activeTab === 'editor'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Editor
+            </button>
+            <button
+              onClick={() => setActiveTab('compliance')}
+              className={`py-3 px-6 text-sm font-medium ${
+                activeTab === 'compliance'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Compliance
+            </button>
+            <button
+              onClick={() => setActiveTab('documents')}
+              className={`py-3 px-6 text-sm font-medium ${
+                activeTab === 'documents'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Documents
+            </button>
+          </div>
         </div>
 
-        {/* Editor Canvas */}
+        {/* Tab Content */}
         <div className="p-4">
-          <EditorCanvas sections={mockSections} layout={mockLayout} />
+          {activeTab === 'editor' && (
+            <EditorCanvas sections={mockSections} layout={mockLayout} />
+          )}
+          
+          {activeTab === 'compliance' && (
+            <ComplianceChecker documentId={id as string} />
+          )}
+          
+          {activeTab === 'documents' && (
+            <DocumentGenerator documentId={id as string} />
+          )}
         </div>
       </div>
 
@@ -199,15 +246,10 @@ export default function GrantWorkspace() {
       {/* AI Assistant FAB */}
       <button
         onClick={toggleAIDrawer}
-        className="fixed right-6 bottom-6 w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg hover:bg-blue-700 transition-colors z-20"
+        className="fixed right-6 bottom-6 p-4 bg-blue-600 rounded-full text-white shadow-lg hover:bg-blue-700 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-          />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
         </svg>
       </button>
     </div>

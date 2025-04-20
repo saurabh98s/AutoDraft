@@ -23,9 +23,10 @@ interface EditorCanvasProps {
     minW?: number;
     maxW?: number;
   }[];
+  onContentChange?: (sectionId: string, content: string) => void;
 }
 
-const EditorCanvas: React.FC<EditorCanvasProps> = ({ sections, layout }) => {
+const EditorCanvas: React.FC<EditorCanvasProps> = ({ sections, layout, onContentChange }) => {
   const [currentLayout, setCurrentLayout] = useState(layout);
   const dispatch = useDispatch();
 
@@ -39,8 +40,13 @@ const EditorCanvas: React.FC<EditorCanvasProps> = ({ sections, layout }) => {
   };
 
   const handleContentChange = (sectionId: string, newContent: string) => {
-    // In a real application, we would save this change to the backend
-    console.log(`Section ${sectionId} content changed:`, newContent);
+    // Call the parent component's onContentChange if provided
+    if (onContentChange) {
+      onContentChange(sectionId, newContent);
+    } else {
+      // Fallback behavior if no parent handler is provided
+      console.log(`Section ${sectionId} content changed:`, newContent);
+    }
   };
 
   return (

@@ -26,19 +26,17 @@ const PUBLIC_PATHS = ['/login', '/', '/register', '/forgot-password'];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const dispatch = useDispatch();
-  const { login: authLogin, logout: authLogout, checkAuth: authCheck } = useAuth();
+  const { login: authLogin, logout: authLogout, isAuthenticated } = useAuth();
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const { user, exp } = await authLogin(email, password);
-      dispatch(loginSuccess({ user, exp }));
-      setIsAuthenticated(true);
+      const authData = await authLogin();
       router.push('/dashboard');
+      return authData;
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -50,18 +48,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logoutUser = () => {
     authLogout();
     dispatch(logout());
-    setIsAuthenticated(false);
-    router.push('/login');
   };
 
   const checkAuth = async () => {
     setIsLoading(true);
     try {
-      const result = await authCheck();
-      setIsAuthenticated(result);
-      return result;
+      return isAuthenticated;
     } catch (error) {
-      setIsAuthenticated(false);
       return false;
     } finally {
       setIsLoading(false);
@@ -69,16 +62,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    const initAuth = async () => {
-      const isAuth = await checkAuth();
-      
-      if (!isAuth && !PUBLIC_PATHS.includes(pathname)) {
-        router.push('/login');
-      }
-    };
+    // Since useAuth already sets up authentication on mount,
+    // we don't need to do additional checks or redirects here
+    setIsLoading(false);
+  }, []);
 
-    initAuth();
-  }, [pathname]);
 
   return (
     <AuthContext.Provider
@@ -93,4 +81,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-} 
+}

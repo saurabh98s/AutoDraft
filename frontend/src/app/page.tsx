@@ -1,49 +1,24 @@
-import Image from "next/image";
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Home() {
+  const router = useRouter();
+  
+  // useEffect(() => {
+  //   // Immediately redirect to dashboard for demo purposes
+  //   router.replace('/dashboard');
+  // }, [router]);
+  
   return (
     <div className="flex flex-col min-h-screen font-[family-name:var(--font-geist-sans)] overflow-hidden">
       {/* Animated Background Blobs */}
       <div className="animated-blob w-[500px] h-[500px] left-[-200px] top-[100px]" style={{ animationDelay: "0s" }}></div>
       <div className="animated-blob w-[600px] h-[600px] right-[-250px] top-[300px]" style={{ animationDelay: "2s" }}></div>
       <div className="animated-blob w-[400px] h-[400px] left-[30%] bottom-[-100px]" style={{ animationDelay: "4s" }}></div>
-
-      {/* Header */}
-      <header className="fixed w-full bg-white/80 backdrop-blur-md z-50 border-b border-gray-100">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent animate-gradient">
-              AutoDraft
-            </h1>
-          </div>
-          <nav className="hidden md:flex items-center space-x-8">
-            <Link href="/features" className="text-gray-600 hover:text-gray-900 hover:underline underline-offset-4 transition-all">
-              Features
-            </Link>
-            <Link href="/pricing" className="text-gray-600 hover:text-gray-900 hover:underline underline-offset-4 transition-all">
-              Pricing
-            </Link>
-            <Link href="/about" className="text-gray-600 hover:text-gray-900 hover:underline underline-offset-4 transition-all">
-              About
-            </Link>
-          </nav>
-          <div className="flex items-center space-x-4">
-            <Link
-              href="/login"
-              className="text-indigo-600 hover:text-indigo-800 transition px-4 py-2 rounded-md"
-            >
-              Log in
-            </Link>
-            <Link
-              href="/register"
-              className="btn-primary hover-lift"
-            >
-              Get Started
-            </Link>
-          </div>
-        </div>
-      </header>
 
       {/* Hero Section */}
       <section className="pt-32 pb-16 px-4 md:pt-40 md:pb-24 relative">
@@ -319,3 +294,4 @@ export default function Home() {
     </div>
   );
 }
+

@@ -7,8 +7,8 @@ import { addMessage } from '../../store/slices/aiSlice';
 import { useEventSource } from '../../hooks/useEventSource';
 
 interface GrantBotProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 interface Message {
@@ -22,7 +22,7 @@ interface Message {
   };
 }
 
-const GrantBot: React.FC<GrantBotProps> = ({ isOpen, onClose }) => {
+const GrantBot: React.FC<GrantBotProps> = ({ isOpen = true, onClose = () => {} }) => {
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const dispatch = useDispatch();

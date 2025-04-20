@@ -121,11 +121,15 @@ body {
   }
   
   .btn-primary {
-    @apply btn-modern bg-primary text-white hover:bg-primary hover:opacity-90;
+    @apply inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm 
+           text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 
+           focus:ring-blue-500 transition-colors;
   }
   
   .btn-secondary {
-    @apply btn-modern bg-white border border-gray-200 text-gray-800 hover:bg-gray-50;
+    @apply inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm 
+           text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 
+           focus:ring-blue-500 transition-colors;
   }
   
   .btn-accent {
@@ -174,4 +178,117 @@ body {
   border-radius: 100%;
   background: radial-gradient(circle, rgba(79, 70, 229, 0.8) 0%, rgba(147, 51, 234, 0.5) 100%);
   animation: float 8s ease-in-out infinite;
+}
+
+/* Add animations for dashboard */
+@keyframes blob-animation {
+  0%, 100% {
+    border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+  }
+  25% {
+    border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%;
+  }
+  50% {
+    border-radius: 40% 60% 30% 70% / 60% 40% 60% 40%;
+  }
+  75% {
+    border-radius: 60% 40% 70% 30% / 40% 50% 60% 50%;
+  }
+}
+
+@keyframes float-animation {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+@keyframes pulse-animation {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes gradient-animation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dashboard animations */
+.animated-gradient {
+  background-size: 200% 200%;
+  animation: gradient-animation 5s ease infinite;
+}
+
+.animated-blob {
+  position: absolute;
+  background: linear-gradient(125deg, rgba(120, 119, 255, 0.05), rgba(100, 218, 255, 0.15));
+  animation: blob-animation 25s linear infinite, float-animation 10s ease-in-out infinite;
+  z-index: 0;
+}
+
+.animate-gradient {
+  background-size: 200% auto;
+  animation: gradient-animation 3s ease infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease forwards;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.5s ease forwards;
+}
+
+.animate-pulse-gentle {
+  animation: pulse-animation 3s ease infinite;
+}
+
+.hover-scale {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hover-scale:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.hover-lift {
+  transition: transform 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
 }
